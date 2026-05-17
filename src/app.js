@@ -9,7 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const config = require('../config');
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', config.trustProxy);
 
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
@@ -29,6 +29,7 @@ const limiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 });
 app.use(limiter);
 

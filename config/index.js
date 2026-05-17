@@ -24,6 +24,7 @@ const config = {
       methods: ['GET', 'POST'],
     },
   },
+  trustProxy: process.env.TRUST_PROXY || 1,
   webRtc: {
     iceServers: [
       {

@@ -3,6 +3,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+PORT="${PORT:-3000}"
+
+printf "\nChecking port %s for existing processes...\n" "$PORT"
+if command -v lsof >/dev/null 2>&1; then
+  PIDS=$(lsof -ti :"$PORT" || true)
+else
+  PIDS=$(ss -tulpn 2>/dev/null | awk -v port=":$PORT" '$5 ~ port { split($NF,a,"/"); print a[1] }' | sort -u)
+fi
+
+if [[ -n "${PIDS//[[:space:]]/}" ]]; then
+  printf "Stopping existing process(es) on port %s...\n" "$PORT"
+  kill $PIDS 2>/dev/null || true
+  sleep 1
+fi
+
 printf "\nStarting Docker services...\n"
 docker compose up -d
 
