@@ -9,13 +9,20 @@ Setup Instructions
 ==================
 
 1. Install Node.js and npm on your system.
-2. Clone the repository using `git clone https://github.com/your-repo/realtime-messaging-platform.git`.
-3. Navigate to the project directory using `cd realtime-messaging-platform`.
-4. Install dependencies using `npm install`.
-5. Create a PostgreSQL database and update the database credentials in `config/database.js`.
-6. Create a Redis instance and update the Redis credentials in `config/redis.js`.
-7. Start the server using `npm start`.
-8. Open a web browser and navigate to `http://localhost:3000` to access the platform.
+2. Clone the repository using `git clone https://github.com/GamingOP69/Chat-APP.git`.
+3. Navigate to the project directory using `cd Chat-APP`.
+4. Copy `.env.example` to `.env` and update values as needed.
+5. Start PostgreSQL and Redis with Docker using `docker compose up -d` or run `./start-all.sh`.
+6. Install dependencies using `npm install`.
+7. Build static assets using `npm run build`.
+8. Start the server using `npm start`.
+9. Open a web browser and navigate to `http://localhost:3000`.
+
+Alternative one-step startup:
+
+```bash
+./start-all.sh
+```
 
 Project Structure
 ================

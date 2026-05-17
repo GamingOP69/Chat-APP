@@ -1,54 +1,56 @@
-// Import required modules and configurations
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const config = require('./config/index');
-const db = require('./database/index');
-const redis = require('./redis/index');
-const socketHandlers = require('./socket/handlers');
-const webrtc = require('./webrtc/index');
-const fileUpload = require('./file-upload/index');
-const errorHandling = require('./error-handling/index');
-const security = require('./security/index');
-const performance = require('./performance/index');
+const http = require('http');
+const { Server } = require('socket.io');
+const app = require('./app');
+const config = require('../config');
+const db = require('./db');
+const redisClient = require('./redis');
+const { initSocketHandlers } = require('./socket');
 
-// Set up environment configurations
-app.set('config', config);
-app.set('db', db);
-app.set('redis', redis);
+const server = http.createServer(app);
+const io = new Server(server, { cors: config.socketIo.cors });
+let serverStarted = false;
 
-// Set up express middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+async function startServer(port = config.port) {
+  if (serverStarted) {
+    return server;
+  }
 
-// Set up socket.io middleware
-io.use((socket, next) => {
-  // Authenticate socket connection
-  next();
-});
+  await db.connect();
+  await db.initializeSchema();
+  await redisClient.connect();
+  initSocketHandlers(io);
 
-// Set up socket.io event handlers
-socketHandlers(io);
+  await new Promise((resolve, reject) => {
+    server.listen(port, () => {
+      serverStarted = true;
+      console.log(`Server listening on port ${server.address().port}`);
+      resolve();
+    });
+    server.on('error', reject);
+  });
 
-// Set up webrtc signaling
-webrtc(io);
+  return server;
+}
 
-// Set up file upload system
-fileUpload(app);
+async function stopServer() {
+  if (!serverStarted || !server.listening) {
+    return;
+  }
 
-// Set up error handling system
-errorHandling(app);
+  await new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) return reject(error);
+      serverStarted = false;
+      resolve();
+    });
+  });
+}
 
-// Set up security implementation
-security(app);
+if (require.main === module) {
+  startServer().catch((error) => {
+    console.error('Server startup failed:', error);
+    process.exit(1);
+  });
+}
 
-// Set up performance optimization
-performance(app);
-
-// Start server
-const port = config.port;
-http.listen(port, () => {
-  console.log(`Server started on port ${port}`);
-});
+module.exports = { app, server, io, startServer, stopServer };

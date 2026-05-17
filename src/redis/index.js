@@ -1,144 +1,84 @@
-const redis = require('redis');
-const { RedisConfig } = require('../config');
+const { createClient } = require('redis');
+const config = require('../../config');
 
-class RedisClient {
-  constructor() {
-    this.client = redis.createClient({
-      host: RedisConfig.host,
-      port: RedisConfig.port,
-      password: RedisConfig.password,
-    });
+const client = createClient({
+  url: config.redis.password
+    ? `redis://:${config.redis.password}@${config.redis.host}:${config.redis.port}`
+    : `redis://${config.redis.host}:${config.redis.port}`,
+});
 
-    this.client.on('error', (err) => {
-      console.error('Redis error:', err);
-    });
+client.on('error', (err) => {
+  console.error('Redis error:', err);
+});
 
-    this.client.on('connect', () => {
-      console.log('Connected to Redis');
-    });
+async function connect() {
+  if (!client.isOpen) {
+    await client.connect();
   }
-
-  async get(key) {
-    return new Promise((resolve, reject) => {
-      this.client.get(key, (err, value) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(value);
-        }
-      });
-    });
-  }
-
-  async set(key, value) {
-    return new Promise((resolve, reject) => {
-      this.client.set(key, value, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async expire(key, seconds) {
-    return new Promise((resolve, reject) => {
-      this.client.expire(key, seconds, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async del(key) {
-    return new Promise((resolve, reject) => {
-      this.client.del(key, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async sadd(key, value) {
-    return new Promise((resolve, reject) => {
-      this.client.sadd(key, value, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async smembers(key) {
-    return new Promise((resolve, reject) => {
-      this.client.smembers(key, (err, values) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(values);
-        }
-      });
-    });
-  }
-
-  async srem(key, value) {
-    return new Promise((resolve, reject) => {
-      this.client.srem(key, value, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async publish(channel, message) {
-    return new Promise((resolve, reject) => {
-      this.client.publish(channel, message, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async subscribe(channel) {
-    return new Promise((resolve, reject) => {
-      this.client.subscribe(channel, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  async unsubscribe(channel) {
-    return new Promise((resolve, reject) => {
-      this.client.unsubscribe(channel, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
+  return client;
 }
 
-const redisClient = new RedisClient();
+function presenceKey(roomId) {
+  return `room:presence:${roomId}`;
+}
 
-module.exports = redisClient;
+function typingKey(roomId) {
+  return `room:typing:${roomId}`;
+}
+
+function socketUserKey(socketId) {
+  return `socket:user:${socketId}`;
+}
+
+async function addRoomSocket(roomId, socketId) {
+  await client.sAdd(presenceKey(roomId), socketId);
+  await client.expire(presenceKey(roomId), 60 * 60);
+}
+
+async function removeRoomSocket(roomId, socketId) {
+  await client.sRem(presenceKey(roomId), socketId);
+}
+
+async function getRoomSockets(roomId) {
+  return client.sMembers(presenceKey(roomId));
+}
+
+async function setSocketUser(socketId, user) {
+  await client.set(socketUserKey(socketId), JSON.stringify(user), { EX: 60 * 60 });
+}
+
+async function getSocketUser(socketId) {
+  const value = await client.get(socketUserKey(socketId));
+  return value ? JSON.parse(value) : null;
+}
+
+async function clearSocketUser(socketId) {
+  await client.del(socketUserKey(socketId));
+}
+
+async function addTyping(socketId, roomId) {
+  await client.sAdd(typingKey(roomId), socketId);
+  await client.expire(typingKey(roomId), 20);
+}
+
+async function removeTyping(socketId, roomId) {
+  await client.sRem(typingKey(roomId), socketId);
+}
+
+async function getTypingSockets(roomId) {
+  return client.sMembers(typingKey(roomId));
+}
+
+module.exports = {
+  client,
+  connect,
+  addRoomSocket,
+  removeRoomSocket,
+  getRoomSockets,
+  setSocketUser,
+  getSocketUser,
+  clearSocketUser,
+  addTyping,
+  removeTyping,
+  getTypingSockets,
+};

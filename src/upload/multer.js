@@ -1,33 +1,35 @@
+const path = require('path');
+const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const config = require('../../config/index');
+const config = require('../../config');
+
+const uploadsPath = path.join(__dirname, '..', '..', 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
-  },
-  filename: (req, file, cb) => {
-    const fileName = `${uuidv4()}${path.extname(file.originalname)}`;
+  destination: uploadsPath,
+  filename(req, file, cb) {
+    const extension = path.extname(file.originalname).toLowerCase();
+    const fileName = `${uuidv4()}${extension}`;
     cb(null, fileName);
   },
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'video/mp4', 'application/pdf'];
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('File type not supported'));
+function fileFilter(req, file, cb) {
+  if (config.fileUpload.allowedMimeTypes.includes(file.mimetype)) {
+    return cb(null, true);
   }
-};
 
-const upload = multer({
+  cb(new Error('Invalid file type'), false);
+}
+
+module.exports = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: config.upload.maxFileSize,
+    fileSize: Number(config.fileUpload.maxFileSize) || 10 * 1024 * 1024,
   },
 });
-
-module.exports = upload;

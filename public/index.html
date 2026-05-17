@@ -1,29 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Messaging Platform</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enterprise Chat Platform</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <h2>Rooms</h2>
-            <ul id="rooms-list"></ul>
-            <button id="create-room-btn">Create Room</button>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <p class="brand">Enterprise Chat</p>
+          <small class="subtitle">Real-time messaging powered by Socket.IO</small>
         </div>
-        <div class="chat-panel">
-            <h2 id="room-name"></h2>
-            <div id="message-container"></div>
-            <input id="message-input" type="text" placeholder="Type a message...">
-            <button id="send-message-btn">Send</button>
-            <button id="voice-call-btn">Voice Call</button>
-            <button id="video-call-btn">Video Call</button>
-            <input id="file-input" type="file" />
-            <button id="upload-file-btn">Upload File</button>
+      </div>
+      <div class="sidebar-actions">
+        <button id="create-room-button" class="btn btn-secondary">Create room</button>
+      </div>
+      <div class="sidebar-list">
+        <h4>Rooms</h4>
+        <ul id="room-list"></ul>
+      </div>
+    </aside>
+    <main class="chat-container">
+      <header class="chat-header">
+        <div>
+          <h2 id="current-room-name">Select a room</h2>
+          <p id="presence-text">Offline</p>
         </div>
+        <div class="chat-actions">
+          <button id="start-video-button" class="btn btn-primary">Video</button>
+          <button id="start-audio-button" class="btn btn-secondary">Voice</button>
+        </div>
+      </header>
+      <section class="chat-body">
+        <div id="message-list" class="message-list"></div>
+        <div id="typing-indicator" class="typing-indicator"></div>
+      </section>
+      <footer class="chat-footer">
+        <label class="file-upload-button">
+          <input id="file-input" type="file" />
+          Upload
+        </label>
+        <input id="message-input" type="text" placeholder="Type your message..." />
+        <button id="send-button" class="btn btn-primary">Send</button>
+      </footer>
+    </main>
+  </div>
+
+  <div id="call-overlay" class="call-overlay hidden">
+    <div class="call-panel">
+      <header>
+        <h3 id="call-status">Call in progress</h3>
+        <button id="end-call-button" class="btn btn-secondary">Hang up</button>
+      </header>
+      <div class="video-grid">
+        <div class="video-card">
+          <strong>You</strong>
+          <video id="local-video" autoplay muted playsinline></video>
+        </div>
+        <div class="video-card">
+          <strong>Remote</strong>
+          <video id="remote-video" autoplay playsinline></video>
+        </div>
+      </div>
     </div>
-    <script src="script.js"></script>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="room-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Create a new room</h3>
+      <input id="room-name-input" placeholder="Room name" />
+      <div class="modal-actions">
+        <button id="cancel-room-button" class="btn btn-secondary">Cancel</button>
+        <button id="confirm-room-button" class="btn btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ const config = {
     port: process.env.POSTGRES_PORT || 5432,
     user: process.env.POSTGRES_USER || 'postgres',
     password: process.env.POSTGRES_PASSWORD || 'password',
-    database: process.env.POSTGRES_DB || 'messaging_platform',
+    database: process.env.POSTGRES_DB || 'chat_app',
   },
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
@@ -20,7 +20,7 @@ const config = {
   },
   socketIo: {
     cors: {
-      origin: process.env.SOCKET_IO_CORS_ORIGIN || '*',
+      origin: process.env.SOCKET_IO_CORS_ORIGIN || 'http://localhost:3000',
       methods: ['GET', 'POST'],
     },
   },
@@ -32,8 +32,18 @@ const config = {
     ],
   },
   fileUpload: {
-    maxFileSize: process.env.MAX_FILE_SIZE || 10 * 1024 * 1024, // 10MB
-    allowedMimeTypes: ['image/jpeg', 'image/png', 'video/mp4'],
+    maxFileSize: Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024,
+    allowedMimeTypes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'video/mp4',
+      'video/webm',
+      'audio/mpeg',
+      'audio/wav',
+      'application/pdf',
+      'application/zip',
+    ],
   },
   logging: {
     level: process.env.LOGGING_LEVEL || 'info',

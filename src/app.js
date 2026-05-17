@@ -1,67 +1,45 @@
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
-const cors = require('cors');
 const compression = require('compression');
+const cors = require('cors');
 const rateLimit = require('express-rate-limit');
-const socketIO = require('socket.io');
-const http = require('http');
-const path = require('path');
-const config = require('./config');
 const routes = require('./routes');
-const socketHandlers = require('./socketHandlers');
-const db = require('./db');
-const redis = require('./redis');
+const errorHandler = require('./middleware/errorHandler');
+const config = require('../config');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin: config.corsOrigin,
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'],
-  },
-});
+app.set('trust proxy', 1);
 
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false,
+}));
+app.use(cors({
+  origin: config.socketIo.cors.origin,
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+}));
 app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
 app.use('/api', routes);
-
-app.use(express.static(path.join(__dirname, '../public')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-io.on('connection', (socket) => {
-  socketHandlers(io, socket);
-});
+app.use(errorHandler);
 
-db.connect()
-  .then(() => {
-    console.log('Database connected');
-  })
-  .catch((err) => {
-    console.error('Database connection error:', err);
-  });
-
-redis.connect()
-  .then(() => {
-    console.log('Redis connected');
-  })
-  .catch((err) => {
-    console.error('Redis connection error:', err);
-  });
-
-server.listen(config.port, () => {
-  console.log(`Server listening on port ${config.port}`);
-});
+module.exports = app;

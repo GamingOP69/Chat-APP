@@ -1,19 +1,24 @@
-const { describe, it, expect } = require('@jest/globals');
+const { describe, it, expect, beforeAll, afterAll } = require('@jest/globals');
 const request = require('supertest');
-const app = require('../src/app');
 const io = require('socket.io-client');
-const { connect } = require('../src/redis');
+const { connect, client: redisClient } = require('../src/redis');
 const { db } = require('../src/db');
+const { app, server, startServer, stopServer } = require('../src/index');
+
+let port;
 
 describe('Application Tests', () => {
   beforeAll(async () => {
-    await db.connect();
-    await connect();
+    await startServer(0);
+    port = server.address().port;
   });
 
   afterAll(async () => {
+    await stopServer();
     await db.end();
-    await connect().then(client => client.quit());
+    if (redisClient.isOpen) {
+      await redisClient.quit();
+    }
   });
 
   describe('GET /', () => {
@@ -25,18 +30,22 @@ describe('Application Tests', () => {
 
   describe('Socket.IO Connection', () => {
     it('should establish a connection', async () => {
-      const client = io('http://localhost:3000');
-      client.on('connect', () => {
-        expect(client.connected).toBe(true);
+      const client = io(`http://127.0.0.1:${port}`);
+      await new Promise((resolve, reject) => {
+        client.on('connect', () => {
+          expect(client.connected).toBe(true);
+          client.close();
+          resolve();
+        });
+        client.on('connect_error', reject);
       });
-      await new Promise(resolve => setTimeout(resolve, 100));
     });
   });
 
   describe('WebRTC Signaling', () => {
     it('should exchange ICE candidates', async () => {
-      const client1 = io('http://localhost:3000');
-      const client2 = io('http://localhost:3000');
+      const client1 = io(`http://127.0.0.1:${port}`);
+      const client2 = io(`http://127.0.0.1:${port}`);
 
       client1.on('connect', () => {
         client1.emit('join', 'room1');
@@ -54,13 +63,15 @@ describe('Application Tests', () => {
         client1.emit('answer', answer);
       });
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 150));
+      client1.close();
+      client2.close();
     });
   });
 
   describe('File Uploads', () => {
     it('should upload a file', async () => {
-      const response = await request(app).post('/upload').attach('file', './test.txt');
+      const response = await request(app).post('/api/upload').attach('file', './tests/test.png');
       expect(response.status).toBe(201);
     });
   });
@@ -77,8 +88,9 @@ describe('Application Tests', () => {
 
   describe('PostgreSQL Connection', () => {
     it('should create a user', async () => {
-      const user = await db.query('INSERT INTO users (id, username) VALUES ($1, $2) RETURNING *', [1, 'test']);
-      expect(user.rows[0].username).toBe('test');
+      const username = `test-${Date.now()}`;
+      const user = await db.query('INSERT INTO users (username) VALUES ($1) RETURNING *', [username]);
+      expect(user.rows[0].username).toBe(username);
     });
   });
 });
