@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Messaging Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Rooms</h2>
+            <ul id="rooms-list"></ul>
+            <button id="create-room-btn">Create Room</button>
+        </div>
+        <div class="chat-panel">
+            <h2 id="room-name"></h2>
+            <div id="message-container"></div>
+            <input id="message-input" type="text" placeholder="Type a message...">
+            <button id="send-message-btn">Send</button>
+            <button id="voice-call-btn">Voice Call</button>
+            <button id="video-call-btn">Video Call</button>
+            <input id="file-input" type="file" />
+            <button id="upload-file-btn">Upload File</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
