@@ -36,9 +36,12 @@ async function initializeSchema() {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // ensure password_hash column exists for older schemas
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS rooms (
@@ -113,6 +116,58 @@ async function initializeSchema() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_call_logs_room_id ON call_logs(room_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_rooms_created_at ON rooms(created_at);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);');
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash VARCHAR(255) NOT NULL,
+          device_info TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);');
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS device_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token TEXT NOT NULL,
+          platform VARCHAR(50),
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_device_tokens_user_id ON device_tokens(user_id);');
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS friend_requests (
+          id SERIAL PRIMARY KEY,
+          from_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          to_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          status VARCHAR(32) NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS friendships (
+          id SERIAL PRIMARY KEY,
+          user_a INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_b INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_a, user_b)
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_friend_requests_to_user ON friend_requests(to_user);');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_friendships_users ON friendships(user_a, user_b);');
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS message_reactions (
+          id SERIAL PRIMARY KEY,
+          message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          reaction VARCHAR(64) NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(message_id, user_id, reaction)
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON message_reactions(message_id);');
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

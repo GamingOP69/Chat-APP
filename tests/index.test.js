@@ -6,11 +6,14 @@ const { db } = require('../src/db');
 const { app, server, startServer, stopServer } = require('../src/index');
 
 let port;
+let guestToken;
 
 describe('Application Tests', () => {
   beforeAll(async () => {
     await startServer(0);
     port = server.address().port;
+    const authRes = await request(app).post('/api/auth/guest').send({ username: 'test-suite' });
+    guestToken = authRes.body.token;
   });
 
   afterAll(async () => {
@@ -30,7 +33,7 @@ describe('Application Tests', () => {
 
   describe('Socket.IO Connection', () => {
     it('should establish a connection', async () => {
-      const client = io(`http://127.0.0.1:${port}`);
+      const client = io(`http://127.0.0.1:${port}`, { auth: { token: guestToken } });
       await new Promise((resolve, reject) => {
         client.on('connect', () => {
           expect(client.connected).toBe(true);
@@ -44,8 +47,8 @@ describe('Application Tests', () => {
 
   describe('WebRTC Signaling', () => {
     it('should exchange ICE candidates', async () => {
-      const client1 = io(`http://127.0.0.1:${port}`);
-      const client2 = io(`http://127.0.0.1:${port}`);
+      const client1 = io(`http://127.0.0.1:${port}`, { auth: { token: guestToken } });
+      const client2 = io(`http://127.0.0.1:${port}`, { auth: { token: guestToken } });
 
       client1.on('connect', () => {
         client1.emit('join', 'room1');
@@ -71,7 +74,15 @@ describe('Application Tests', () => {
 
   describe('File Uploads', () => {
     it('should upload a file', async () => {
-      const response = await request(app).post('/api/upload').attach('file', './tests/test.png');
+      // obtain guest token
+      const authRes = await request(app).post('/api/auth/guest').send({ username: 'test-user' });
+      expect(authRes.status).toBe(200);
+      const token = authRes.body.token;
+
+      const response = await request(app)
+        .post('/api/upload')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', './tests/test.png');
       expect(response.status).toBe(201);
     });
   });

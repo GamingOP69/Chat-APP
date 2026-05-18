@@ -9,6 +9,26 @@ const { initSocketHandlers } = require('./socket');
 const server = http.createServer(app);
 const io = new Server(server, { cors: config.socketIo.cors });
 let serverStarted = false;
+// Optionally wire Redis adapter for multi-node scaling
+if (config.socketIo.adapter === 'redis') {
+  try {
+    const { createClient } = require('redis');
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const pubClient = createClient({ url: config.redis.password
+      ? `redis://:${config.redis.password}@${config.redis.host}:${config.redis.port}`
+      : `redis://${config.redis.host}:${config.redis.port}`
+    });
+    const subClient = pubClient.duplicate();
+    Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+      io.adapter(createAdapter(pubClient, subClient));
+      console.log('Socket.IO Redis adapter connected');
+    }).catch((err) => {
+      console.error('Failed to connect Redis adapter:', err);
+    });
+  } catch (err) {
+    console.warn('Redis adapter not available:', err.message);
+  }
+}
 
 async function startServer(port = config.port) {
   if (serverStarted) {
@@ -23,10 +43,12 @@ async function startServer(port = config.port) {
   await new Promise((resolve, reject) => {
     server.listen(port, () => {
       serverStarted = true;
-      console.log(`Server listening on port ${server.address().port}`);
+      const actual = server.address().port;
+      const logger = require('./utils/logger');
+      logger.info('Server listening on port %d', actual);
       resolve();
     });
-    server.on('error', reject);
+    server.on('error', (err) => reject(err));
   });
 
   return server;

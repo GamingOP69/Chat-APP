@@ -1,74 +1,121 @@
-# Deployment Setup and Instructions
+# Deployment Guide
 
-## Table of Contents
-1. [Prerequisites](#prerequisites)
-2. [Environment Variables](#environment-variables)
-3. [Setting Up PostgreSQL](#setting-up-postgresql)
-4. [Setting Up Redis](#setting-up-redis)
-5. [Deploying the Application](#deploying-the-application)
-6. [Running the Application](#running-the-application)
-7. [Scaling the Application](#scaling-the-application)
-8. [Security Considerations](#security-considerations)
+## What Runs in Production
 
-## Prerequisites
-- Node.js (version 16 or higher)
-- npm (version 8 or higher) or yarn (version 1.22 or higher)
-- PostgreSQL (version 14 or higher)
-- Redis (version 7 or higher)
+The production topology is intentionally small and scalable:
+
+- `app`: Express + Socket.IO web server
+- `worker`: background job processor for uploads and async tasks
+- `postgres`: primary relational database
+- `redis`: presence, pub/sub, and queue support
+- `coturn`: WebRTC NAT traversal support
+
+The repository already includes a working `docker-compose.yml` for local infrastructure. This document describes how to run the stack cleanly in development and what to configure for production.
 
 ## Environment Variables
-Create a `.env` file in the root directory with the following variables:
-```
+
+Minimum required values:
+
+```bash
+PORT=3000
 NODE_ENV=production
-PORT=8080
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=myuser
-DB_PASSWORD=mypassword
-DB_NAME=mydb
-REDIS_HOST=localhost
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=chat_app
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+REDIS_HOST=redis
 REDIS_PORT=6379
+JWT_SECRET=change-me
+JWT_REFRESH_SECRET=change-me-too
+SOCKET_IO_CORS_ORIGIN=http://localhost:3000
+TRUST_PROXY=1
 ```
 
-## Setting Up PostgreSQL
-Create a new PostgreSQL database and user:
-```sql
-CREATE DATABASE mydb;
-CREATE ROLE myuser WITH PASSWORD 'mypassword';
-GRANT ALL PRIVILEGES ON DATABASE mydb TO myuser;
-```
-Run the database schema creation script:
+Optional production integrations:
+
 ```bash
-psql -U myuser -d mydb -f src/db/schema.sql
+GOOGLE_CLIENT_ID=your-google-client-id
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=your-bucket
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+FIREBASE_SERVICE_ACCOUNT_JSON={...}
+TURN_EXTERNAL_IP=your-public-ip
+TURN_USERS=user:password
+SOCKET_IO_ADAPTER=redis
 ```
 
-## Setting Up Redis
-Start the Redis server:
+## Local Development
+
+1. Start services:
+
 ```bash
-redis-server
-```
-Configure Redis to use a password:
-```bash
-redis-cli CONFIG SET requirepass mypassword
+docker compose up -d postgres redis coturn
 ```
 
-## Deploying the Application
-Build the application:
-```bash
-npm run build
-```
-Deploy the application to a production environment.
+2. Install dependencies:
 
-## Running the Application
-Start the application:
+```bash
+npm install
+```
+
+3. Start the app:
+
 ```bash
 npm start
 ```
-Access the application at `http://localhost:8080`.
 
-## Scaling the Application
-Use a load balancer to distribute traffic across multiple instances.
+4. Open `http://localhost:3000`.
 
-## Security Considerations
-Implement SSL/TLS encryption for production environments.
-Use a Web Application Firewall (WAF) to protect against common web attacks.
+## Production Container Run
+
+Build and run the app image:
+
+```bash
+docker build -t chat-app:latest .
+docker run --rm -p 3000:3000 --env-file .env chat-app:latest
+```
+
+Run the worker alongside it:
+
+```bash
+docker run --rm --env-file .env chat-app:latest npm run worker
+```
+
+## Docker Compose Production Pattern
+
+Use the same app image for the main server and worker. In production, place them behind a reverse proxy or load balancer and do not expose PostgreSQL or Redis publicly.
+
+Recommended external controls:
+
+- TLS termination at the edge proxy or load balancer
+- Sticky sessions if Socket.IO is not using a shared session strategy
+- Health checks on `/health`
+- Horizontal scaling only after Redis adapter and TURN are confirmed
+
+## Scaling Guidance
+
+- Keep PostgreSQL as the source of truth.
+- Keep Redis for ephemeral state only.
+- Do not persist presence in PostgreSQL.
+- Use the worker for expensive media or scanning jobs.
+- Add CDN/object storage for media delivery when S3 is enabled.
+- Keep Socket.IO events small and acknowledgement-based.
+
+## Security Guidance
+
+- Use HTTPS everywhere.
+- Set a strong `JWT_SECRET` and rotate refresh secrets when needed.
+- Restrict `SOCKET_IO_CORS_ORIGIN` to real application origins.
+- Never expose Redis or PostgreSQL directly to the public internet.
+- Prefer signed uploads and signed downloads for private media.
+
+## Operations Checklist
+
+- Monitor application logs.
+- Watch PostgreSQL connection counts.
+- Watch Redis memory and eviction behavior.
+- Confirm TURN is reachable from mobile networks.
+- Verify browser push permissions and token registration if notifications are enabled.
+- Run `npm test` before every release.

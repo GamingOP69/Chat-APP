@@ -1,6 +1,6 @@
 const { RTCPeerConnection, RTCSessionDescription } = require('wrtc');
 const socket = require('../socket');
-const redis = require('../redis');
+const _redis = require('../redis');
 const config = require('../../config');
 
 class VoiceCall {

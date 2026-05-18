@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -14,6 +15,7 @@
           <p class="brand">Enterprise Chat</p>
           <small class="subtitle">Real-time messaging powered by Socket.IO</small>
         </div>
+        <button id="sidebar-close-button" class="icon-button mobile-only" aria-label="Close navigation">×</button>
       </div>
       <div class="sidebar-actions">
         <button id="create-room-button" class="btn btn-secondary">Create room</button>
@@ -22,14 +24,22 @@
         <h4>Rooms</h4>
         <ul id="room-list"></ul>
       </div>
+      <div class="sidebar-footer">
+        <button id="notification-toggle-button" class="btn btn-secondary">Enable notifications</button>
+        <small class="subtitle">Sound and browser alerts for new activity</small>
+      </div>
     </aside>
     <main class="chat-container">
       <header class="chat-header">
-        <div>
-          <h2 id="current-room-name">Select a room</h2>
-          <p id="presence-text">Offline</p>
+        <div class="chat-header-title">
+          <button id="sidebar-toggle" class="icon-button mobile-only" aria-label="Open navigation">☰</button>
+          <div>
+            <h2 id="current-room-name">Select a room</h2>
+            <p id="presence-text">Offline</p>
+          </div>
         </div>
         <div class="chat-actions">
+          <span id="connection-status" class="status-pill status-pill--muted">Connecting</span>
           <button id="start-video-button" class="btn btn-primary">Video</button>
           <button id="start-audio-button" class="btn btn-secondary">Voice</button>
         </div>
@@ -43,7 +53,10 @@
           <input id="file-input" type="file" />
           Upload
         </label>
-        <input id="message-input" type="text" placeholder="Type your message..." />
+        <div class="composer-shell">
+          <input id="message-input" type="text" placeholder="Type a message, link, or idea..." />
+          <small class="composer-hint">Enter to send. Use the upload button for media and files.</small>
+        </div>
         <button id="send-button" class="btn btn-primary">Send</button>
       </footer>
     </main>

@@ -50,64 +50,64 @@ Redis Integration
 
 Redis is used for presence tracking, typing indicators, and socket-user mapping. The Redis integration is handled by the `redis` package and is configured in `config/redis.js`.
 
-Socket.IO Architecture
-=====================
+# Chat-APP
 
-The Socket.IO architecture is designed to handle real-time events such as message delivery, typing indicators, and presence updates. The Socket.IO event handlers are located in `socket/index.js`.
+Chat-APP is a real-time communication platform built with Node.js, Express, Socket.IO, PostgreSQL, Redis, and WebRTC. The current codebase includes authenticated HTTP and Socket.IO flows, room messaging, reactions, uploads, guest and Google sign-in support, browser notifications, voice/video calling, Redis-backed presence, and a responsive premium UI.
 
-WebRTC Implementation
-====================
+## Highlights
 
-The WebRTC implementation is used for voice and video calling. The WebRTC signaling is handled by Socket.IO and is configured in `socket/webrtc.js`.
+- Real-time rooms, messages, typing, reactions, and call signaling
+- JWT auth with guest, email/password, refresh token, and Google sign-in support
+- PostgreSQL-backed persistence with Redis for presence and coordination
+- Direct-to-S3 presigned upload support with local fallback uploads
+- Browser notification toggle and message sound feedback
+- Responsive mobile-first UI with sidebar drawer behavior
+- Docker Compose setup for PostgreSQL, Redis, and coturn
+- Background worker for queued upload jobs
 
-Frontend Implementation
-=====================
+## Quick Start
 
-The frontend implementation is built using HTML, CSS, and JavaScript. The frontend code is located in `public/index.html` and `public/js/index.js`.
+```bash
+cp .env.example .env
+npm install
+docker compose up -d postgres redis coturn
+npm start
+```
 
-API Endpoints
-============
+Open `http://localhost:3000`.
 
-The API endpoints are defined in `routes/index.js` and include endpoints for user registration, login, and message sending.
+## Scripts
 
-File Upload System
-==================
+- `npm start` - run the app server
+- `npm run worker` - run the background worker
+- `npm test` - run the integration test suite
+- `npm run lint` - run ESLint
+- `npm run build` - copy static assets into `dist/`
+- `npm run docker:up` - start local services
+- `npm run docker:down` - stop local services
 
-The file upload system is handled by the `multer` package and is configured in `utils/upload.js`.
+## Architecture
 
-Error Handling System
-=====================
+See [docs/architecture.md](docs/architecture.md) for the current system design and [docs/deployment.md](docs/deployment.md) for production and local deployment guidance.
 
-The error handling system is designed to handle errors such as database connection errors, Redis connection errors, and Socket.IO errors. The error handling system is implemented in `utils/error.js`.
+## Environment
 
-Security Implementation
-=====================
+The app supports the following major integrations when configured:
 
-The security implementation includes measures such as input validation, SQL injection prevention, and XSS protection. The security implementation is handled by the `helmet` package and is configured in `config/security.js`.
+- `JWT_SECRET` and `JWT_REFRESH_SECRET` for session security
+- `GOOGLE_CLIENT_ID` for Google sign-in verification
+- `AWS_*` variables for S3 uploads
+- `FIREBASE_SERVICE_ACCOUNT_JSON` for push notification delivery
+- `SOCKET_IO_ADAPTER=redis` for horizontal Socket.IO scaling
+- `TURN_EXTERNAL_IP` and `TURN_USERS` for coturn production use
 
-Performance Optimization
-=======================
+## Tests
 
-The performance optimization includes measures such as caching, pagination, and efficient database queries. The performance optimization is implemented in `utils/performance.js`.
+```bash
+npm test
+```
 
-Deployment Setup
-================
-
-The deployment setup includes instructions for deploying the application to a production environment. The deployment setup is handled by the `docker` package and is configured in `Dockerfile`.
-
-Production Hardening
-====================
-
-The production hardening includes measures such as security updates, backups, and monitoring. The production hardening is implemented in `utils/hardening.js`.
-
-Scaling Strategy
-================
-
-The scaling strategy includes measures such as horizontal scaling, load balancing, and caching. The scaling strategy is implemented in `utils/scaling.js`.
-
-Future Improvements
-==================
-
+The repository includes a focused integration suite that exercises HTTP, Socket.IO, WebRTC signaling, uploads, Redis, and PostgreSQL connectivity.
 The future improvements include measures such as adding new features, improving performance, and enhancing security. The future improvements are tracked in the `TODO.md` file.
 
 Full Runnable Code
