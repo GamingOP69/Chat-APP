@@ -12,12 +12,31 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 pool.on('error', (err) => {
   console.error('Unexpected PG client error', err);
 });
 
 async function connect() {
-  await pool.query('SELECT 1');
+  const attempts = 8;
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await pool.query('SELECT 1');
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) {
+        throw error;
+      }
+
+      await sleep(500 * attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 async function query(text, params) {

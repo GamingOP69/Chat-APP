@@ -55,12 +55,40 @@ jobs:
         run: npm ci
       - name: Wait for PostgreSQL
         run: |
-          for i in {1..30}; do
-            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d chat_app; then
-              exit 0
-            fi
-            sleep 2
-          done
-          exit 1
+          node <<'NODE'
+          const { Client } = require('pg');
+
+          const client = new Client({
+            host: '127.0.0.1',
+            port: 5432,
+            user: 'postgres',
+            password: 'postgres',
+            database: 'chat_app',
+          });
+
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          (async () => {
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              try {
+                await client.connect();
+                await client.query('SELECT 1');
+                await client.end();
+                process.exit(0);
+              } catch (error) {
+                try {
+                  await client.end();
+                } catch (endError) {
+                  void endError;
+                }
+                if (attempt === 30) {
+                  console.error(error);
+                  process.exit(1);
+                }
+                await sleep(2000);
+              }
+            }
+          })();
+          NODE
       - name: Run tests
         run: npm test --silent
