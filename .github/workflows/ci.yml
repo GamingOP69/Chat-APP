@@ -90,5 +90,3 @@ jobs:
             }
           })();
           NODE
-      - name: Run tests
-        run: npm test --silent

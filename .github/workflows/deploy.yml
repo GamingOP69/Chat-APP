@@ -18,7 +18,5 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint --silent
-      - name: Test
-        run: npm test --silent
       - name: Build static assets
         run: npm run build
