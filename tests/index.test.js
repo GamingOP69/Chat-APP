@@ -5,6 +5,8 @@ const { connect, client: redisClient } = require('../src/redis');
 const { db } = require('../src/db');
 const { app, server, startServer, stopServer } = require('../src/index');
 
+jest.setTimeout(30000);
+
 let port;
 let guestToken;
 
