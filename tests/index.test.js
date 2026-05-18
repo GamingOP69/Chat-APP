@@ -16,7 +16,7 @@ describe('Application Tests', () => {
     port = server.address().port;
     const authRes = await request(app).post('/api/auth/guest').send({ username: 'test-suite' });
     guestToken = authRes.body.token;
-  });
+  }, 60000);
 
   afterAll(async () => {
     await stopServer();

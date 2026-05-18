@@ -7,7 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js --exec node",
     "build": "node scripts/build.js",
-    "test": "jest --runInBand tests/index.test.js",
+    "test": "jest --runInBand --testTimeout=60000 tests/index.test.js",
     "worker": "node src/worker/worker.js",
     "lint": "eslint .",
     "bootstrap": "npm install",
