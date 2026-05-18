@@ -7,14 +7,32 @@ const client = createClient({
     : `redis://${config.redis.host}:${config.redis.port}`,
 });
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 client.on('error', (err) => {
   console.error('Redis error:', err);
 });
 
 async function connect() {
-  if (!client.isOpen) {
-    await client.connect();
+  if (client.isOpen) {
+    return client;
   }
+
+  const attempts = 8;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await client.connect();
+      return client;
+    } catch (error) {
+      if (attempt === attempts) {
+        throw error;
+      }
+
+      await sleep(500 * attempt);
+    }
+  }
+
   return client;
 }
 

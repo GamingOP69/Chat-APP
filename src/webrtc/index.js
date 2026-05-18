@@ -15,26 +15,26 @@ class WebRTC {
       iceServers: config.webrtc.iceServers,
     });
 
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
+    peerConnection.onicecandidate = (_event) => {
+      if (_event.candidate) {
         socket.emit('webrtc:candidate', {
           roomId,
           userId,
-          candidate: event.candidate,
+          candidate: _event.candidate,
         });
       }
     };
 
-    peerConnection.onaddstream = (event) => {
-      this.remoteStreams[roomId] = event.stream;
+    peerConnection.onaddstream = (_event) => {
+      this.remoteStreams[roomId] = _event.stream;
       socket.emit('webrtc:stream', {
         roomId,
         userId,
-        stream: event.stream,
+        stream: _event.stream,
       });
     };
 
-    peerConnection.onremovestream = (event) => {
+    peerConnection.onremovestream = (_event) => {
       delete this.remoteStreams[roomId];
       socket.emit('webrtc:stream:remove', {
         roomId,

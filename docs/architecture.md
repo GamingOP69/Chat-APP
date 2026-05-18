@@ -1,256 +1,75 @@
-# High-Level Architecture Overview
+# Architecture Overview
 
-Our real-time web messaging platform is built using a microservices architecture, with a focus on scalability, performance, and reliability. The platform consists of the following components:
+## System Summary
 
-*   **Frontend**: The client-side of the application, built using HTML5, CSS3, and Vanilla JavaScript. The frontend is responsible for handling user interactions, rendering the UI, and communicating with the backend via Socket.IO.
-*   **Backend**: The server-side of the application, built using Node.js, Express.js, and Socket.IO. The backend is responsible for handling incoming requests, managing user connections, and broadcasting messages to connected clients.
-*   **Database**: PostgreSQL is used as the relational database management system to store user data, room data, messages, and other relevant information.
-*   **Redis**: Redis is used as an in-memory data store to handle presence tracking, typing indicators, and socket-user mapping.
-*   **WebRTC**: WebRTC is used to enable real-time voice and video communication between users.
+Chat-APP is a modular real-time communication platform built on Node.js, Express, Socket.IO, PostgreSQL, Redis, and WebRTC. PostgreSQL is the source of truth for persistent domain data, Redis handles low-latency presence and adapter/pub-sub workloads, and the browser client renders the chat experience with vanilla HTML, CSS, and JavaScript.
 
-## System Design Explanation
+## Core Layers
 
-The platform uses a modular architecture, with separate modules for handling different aspects of the application. The modules include:
+### Frontend
+- `public/index.html` provides the app shell.
+- `public/css/style.css` implements the responsive design system, mobile drawer, chat surfaces, call overlay, toast layer, and premium interaction states.
+- `public/js/main.js` manages Socket.IO connection bootstrap, authentication token acquisition, room joins, message rendering, reactions, uploads, call signaling, notifications, and mobile navigation.
 
-*   **Socket.IO Module**: Handles incoming Socket.IO connections, disconnections, and events.
-*   **Database Module**: Handles database operations, including user authentication, room management, and message storage.
-*   **Redis Module**: Handles Redis operations, including presence tracking, typing indicators, and socket-user mapping.
-*   **WebRTC Module**: Handles WebRTC signaling, peer connection setup, and media stream management.
+### HTTP API
+- `src/app.js` configures Express, middleware, security headers, static asset delivery, and route registration.
+- `src/routes/index.js` exposes health, auth, room, upload, config, friend, reaction, device, and config endpoints.
+- `src/controllers/*` contains request handlers.
+- `src/middleware/*` handles validation, auth, and error handling.
 
-## Folder Structure
+### Realtime Layer
+- `src/index.js` creates the HTTP server and Socket.IO instance.
+- `src/socket.js` registers connection handling, room joins, typing, messages, reactions, presence, and WebRTC signaling.
+- Redis adapter support is optional and controlled by configuration so the app can scale horizontally without changing application code.
 
-The project folder structure is as follows:
+### Data Layer
+- `src/db/index.js` initializes PostgreSQL, manages schema bootstrap/migrations, and exposes the pool.
+- `src/services/*` contains persistence and business logic for users, rooms, messages, tokens, notifications, and uploads.
+- Redis tracks presence, socket state, and background queue work.
 
-*   `config`: Environment configuration and settings
-*   `public`: Frontend code, including HTML, CSS, and JavaScript files
-*   `src`: Backend code, including Node.js, Express.js, and Socket.IO files
-*   `src/db`: Database schema and models
-*   `src/redis`: Redis connection and key strategy
-*   `src/webrtc`: WebRTC signaling and peer connection setup
-*   `src/upload`: File upload handling and validation
-*   `tests`: Test suite entry point and test files
+### Background Processing
+- `src/worker/worker.js` consumes queued upload jobs.
+- The worker model keeps the request path fast and gives room for thumbnailing, scanning, and media processing.
 
-## Backend Implementation
+## Authentication Flow
 
-The backend implementation includes the following components:
+1. The client requests a guest token or signs in with email/password or Google ID token.
+2. The server issues access and refresh tokens.
+3. HTTP requests use `Authorization: Bearer ...`.
+4. Socket.IO handshakes also carry the token and are authenticated before the socket can join rooms.
+5. Refresh tokens are persisted in PostgreSQL so sessions can be revoked.
 
-*   **Express.js Application**: Sets up the Express.js application and defines routes for handling incoming requests.
-*   **Socket.IO Setup**: Sets up Socket.IO and defines event handlers for incoming connections, disconnections, and events.
-*   **Database Connection**: Establishes a connection to the PostgreSQL database and defines schema and models for storing user data, room data, messages, and other relevant information.
-*   **Redis Connection**: Establishes a connection to Redis and defines key strategy for handling presence tracking, typing indicators, and socket-user mapping.
+## Realtime Event Flow
 
-## PostgreSQL Schema
+1. A user joins a room via `room:join`.
+2. The server loads historical messages and current members.
+3. Typing, message creation, reactions, and call events are broadcast to the room.
+4. Presence is updated in Redis and mirrored to connected clients.
+5. When Redis adapter mode is enabled, events and presence propagate across app instances.
 
-The PostgreSQL schema includes the following tables:
+## WebRTC Flow
 
-*   **users**: Stores user data, including user ID, username, and online status
-*   **rooms**: Stores room data, including room ID, room name, and room members
-*   **messages**: Stores message data, including message ID, message text, and message sender
-*   **attachments**: Stores attachment data, including attachment ID, attachment type, and attachment data
+- Clients negotiate calls through Socket.IO signaling events.
+- The server acts as a signaling relay and does not terminate media.
+- STUN/TURN configuration is served to the client from `/api/config`.
+- The current compose setup includes coturn for NAT traversal.
 
-## Redis Integration
+## Storage Model
 
-Redis is used to handle presence tracking, typing indicators, and socket-user mapping. The Redis key strategy includes the following keys:
+- PostgreSQL stores users, rooms, messages, sessions, device tokens, friendships, friend requests, and reactions.
+- Redis stores ephemeral state such as presence and queue payloads.
+- File uploads support direct-to-object-storage presigning when S3 is configured, with a server fallback for local development.
 
-*   **online_users**: Stores a set of online user IDs
-*   **typing_indicators**: Stores a hash of typing indicators for each room
-*   **socket_user_map**: Stores a hash of socket-user mappings
+## Scalability Notes
 
-## Socket.IO Architecture
+- Socket.IO can be scaled horizontally by enabling the Redis adapter and ensuring the deployment uses sticky sessions or a shared transport strategy.
+- Presence should remain ephemeral and Redis-backed rather than persisted in PostgreSQL.
+- Long-running media or security tasks should move into background workers instead of request handlers.
+- Read-heavy list views should be paginated or virtualized as histories grow.
 
-The Socket.IO architecture includes the following components:
+## Production Priorities
 
-*   **Socket.IO Server**: Sets up the Socket.IO server and defines event handlers for incoming connections, disconnections, and events.
-*   **Room Management**: Handles room management, including creating, joining, and leaving rooms.
-*   **Presence Tracking**: Handles presence tracking, including updating online status and tracking user connections.
-
-## WebRTC Implementation
-
-The WebRTC implementation includes the following components:
-
-*   **WebRTC Signaling**: Handles WebRTC signaling, including exchanging ICE candidates and SDP offers/answers.
-*   **Peer Connection Setup**: Handles peer connection setup, including creating and managing peer connections.
-*   **Media Stream Management**: Handles media stream management, including getting and managing media streams.
-
-## Frontend Implementation
-
-The frontend implementation includes the following components:
-
-*   **HTML Entry Point**: The main HTML entry point for the application.
-*   **CSS Styles**: Global CSS styles for the application.
-*   **JavaScript Entry Point**: The main JavaScript entry point for the application.
-*   **Socket.IO Client**: Sets up the Socket.IO client and defines event handlers for incoming events.
-*   **WebRTC Client**: Sets up the WebRTC client and handles peer connection setup and media stream management.
-
-## API Endpoints
-
-The API endpoints include the following:
-
-*   **/users**: Handles user registration and login.
-*   **/rooms**: Handles room creation and management.
-*   **/messages**: Handles message sending and retrieval.
-
-## File Upload System
-
-The file upload system includes the following components:
-
-*   **Multer Setup**: Sets up Multer for handling file uploads.
-*   **File Validation**: Handles file validation, including checking file type and size.
-
-## Error Handling System
-
-The error handling system includes the following components:
-
-*   **Error Handling Middleware**: Handles errors and exceptions, including logging and sending error responses.
-
-## Security Implementation
-
-The security implementation includes the following components:
-
-*   **Helmet Configuration**: Configures Helmet for securing the Express.js application.
-*   **CORS Hardening**: Configures CORS for securing cross-origin requests.
-*   **Input Sanitization**: Handles input sanitization, including checking and sanitizing user input.
-
-## Performance Optimization
-
-The performance optimization includes the following components:
-
-*   **Caching**: Uses caching to improve performance, including caching frequently accessed data.
-*   **Optimizing Database Queries**: Optimizes database queries, including using indexes and efficient query methods.
-
-## Deployment Setup
-
-The deployment setup includes the following components:
-
-*   **Docker**: Uses Docker for containerizing the application.
-*   **Kubernetes**: Uses Kubernetes for orchestrating and scaling the application.
-
-## Production Hardening
-
-The production hardening includes the following components:
-
-*   **Monitoring**: Sets up monitoring tools for monitoring application performance and errors.
-*   **Logging**: Configures logging tools for logging application errors and events.
-
-## Scaling Strategy
-
-The scaling strategy includes the following components:
-
-*   **Horizontal Scaling**: Uses horizontal scaling to scale the application, including adding more nodes to the cluster.
-*   **Load Balancing**: Uses load balancing to distribute traffic across nodes.
-
-## Future Improvements
-
-The future improvements include the following:
-
-*   **Improving Performance**: Continues to improve performance, including optimizing database queries and caching frequently accessed data.
-*   **Adding Features**: Adds new features, including support for video conferencing and screen sharing.
-
-Here is the code:
-
-```javascript
-// config/index.js
-const dotenv = require('dotenv');
-
-dotenv.config();
-
-module.exports = {
-  port: process.env.PORT,
-  dbHost: process.env.DB_HOST,
-  dbUser: process.env.DB_USER,
-  dbPassword: process.env.DB_PASSWORD,
-  dbName: process.env.DB_NAME,
-  redisHost: process.env.REDIS_HOST,
-  redisPort: process.env.REDIS_PORT,
-};
-
-// src/index.js
-const express = require('express');
-const app = express();
-const server = require('http').createServer(app);
-const io = require('socket.io')(server);
-const config = require('./config');
-const db = require('./db');
-const redis = require('./redis');
-
-app.use(express.static('public'));
-
-io.on('connection', (socket) => {
-  console.log('Client connected');
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
-  });
-});
-
-server.listen(config.port, () => {
-  console.log(`Server listening on port ${config.port}`);
-});
-
-// src/db/index.js
-const { Pool } = require('pg');
-const config = require('../config');
-
-const pool = new Pool({
-  host: config.dbHost,
-  user: config.dbUser,
-  password: config.dbPassword,
-  database: config.dbName,
-});
-
-module.exports = pool;
-
-// src/redis/index.js
-const redis = require('redis');
-const config = require('../config');
-
-const client = redis.createClient({
-  host: config.redisHost,
-  port: config.redisPort,
-});
-
-module.exports = client;
-
-// src/socket.js
-const io = require('socket.io')();
-const db = require('./db');
-const redis = require('./redis');
-
-io.on('connection', (socket) => {
-  console.log('Client connected');
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
-  });
-});
-
-module.exports = io;
-
-// src/webrtc/index.js
-const io = require('./socket');
-
-io.on('connection', (socket) => {
-  console.log('Client connected');
-
-  socket.on('webrtc', (data) => {
-    console.log('WebRTC data:', data);
-  });
-});
-
-// public/js/main.js
-const socket = io();
-
-socket.on('connect', () => {
-  console.log('Connected to server');
-});
-
-socket.on('disconnect', () => {
-  console.log('Disconnected from server');
-});
-
-// public/js/webrtc.js
-const socket = io();
-
-socket.on('webrtc', (data) => {
-  console.log('WebRTC data:', data);
-});
+- Keep authentication centralized and token-based.
+- Keep UI state optimistic but reconcile through server acknowledgements.
+- Use Redis for ephemeral coordination, PostgreSQL for truth, and object storage for durable media.
+- Keep client-side listeners cleaned up when components or room contexts change.

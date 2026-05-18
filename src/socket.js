@@ -4,6 +4,7 @@ const userService = require('./services/userService');
 const messageService = require('./services/messageService');
 const redis = require('./redis');
 const { sanitizeText } = require('./utils/sanitize');
+const { authenticateSocket } = require('./middleware/authenticate');
 
 async function buildPresence(roomId) {
   const socketIds = await redis.getRoomSockets(roomId);
@@ -22,8 +23,11 @@ async function buildPresence(roomId) {
 }
 
 function initSocketHandlers(io) {
+  io.use(authenticateSocket);
+
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
+    const logger = require('./utils/logger');
+    logger.info('Socket connected: %s user=%s', socket.id, socket.user?.username || 'unknown');
 
     socket.on('room:join', async (payload, callback) => {
       try {
@@ -37,10 +41,19 @@ function initSocketHandlers(io) {
           return callback?.({ success: false, message: 'Room not found.' });
         }
 
-        const username = sanitizeText(payload.username || `Guest-${uuidv4().slice(0, 6)}`);
-        const user = await userService.findOrCreateUser(username);
+        // Prefer authenticated socket user when available
+        let userId = null;
+        let usernameVal = sanitizeText(payload.username || `Guest-${uuidv4().slice(0, 6)}`);
+        if (socket.user && socket.user.id) {
+          userId = socket.user.id;
+          usernameVal = socket.user.username || usernameVal;
+        } else {
+          const user = await userService.findOrCreateUser(usernameVal);
+          userId = user.id;
+          usernameVal = user.username;
+        }
 
-        await redis.setSocketUser(socket.id, { userId: user.id, username: user.username, roomId });
+        await redis.setSocketUser(socket.id, { userId, username: usernameVal, roomId });
         await redis.addRoomSocket(roomId, socket.id);
         socket.join(`room:${roomId}`);
 
@@ -115,6 +128,23 @@ function initSocketHandlers(io) {
       } catch (error) {
         console.error('socket message:create error', error);
         callback?.({ success: false, message: error.message });
+      }
+    });
+
+    socket.on('message:react', async ({ messageId, reaction }, callback) => {
+      try {
+        const session = await redis.getSocketUser(socket.id);
+        if (!session) return callback?.({ success: false, message: 'Session expired' });
+        const userId = session.userId;
+        // store reaction in DB
+        const db = require('./db');
+        await db.query('INSERT INTO message_reactions (message_id, user_id, reaction) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [messageId, userId, reaction]);
+        const rows = await db.query('SELECT user_id, reaction FROM message_reactions WHERE message_id = $1', [messageId]);
+        io.to(`room:${session.roomId}`).emit('message:reaction', { messageId, reactions: rows.rows });
+        callback?.({ success: true, reactions: rows.rows });
+      } catch (err) {
+        console.error('socket message:react error', err);
+        callback?.({ success: false, message: err.message });
       }
     });
 

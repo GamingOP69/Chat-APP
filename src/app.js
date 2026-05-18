@@ -13,7 +13,16 @@ app.set('trust proxy', config.trustProxy);
 
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+      connectSrc: ["'self'", config.socketIo.cors.origin, 'wss:'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+    },
+  },
 }));
 app.use(cors({
   origin: config.socketIo.cors.origin,

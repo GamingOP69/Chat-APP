@@ -34,12 +34,10 @@ router.post('/upload', upload.single('file'), (req, res) => {
     return res.status(400).send({ message: 'No file uploaded' });
   }
 
-  const filePath = req.file.path;
   const fileName = req.file.filename;
-  const fileType = req.file.mimetype;
 
   // Save file metadata to database
-  // const fileMetadata = { filePath, fileName, fileType };
+  // const fileMetadata = { fileName };
   // db.saveFileMetadata(fileMetadata);
 
   res.send({ message: 'File uploaded successfully', fileName });
